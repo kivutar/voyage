@@ -8,11 +8,13 @@ import (
 
 	"git.sr.ht/~adnano/go-gemini"
 	"github.com/veandco/go-sdl2/sdl"
+	"github.com/veandco/go-sdl2/ttf"
 	"github.com/Shopify/go-lua"
 )
 
 //var color int = 0x00000000
 var surface *sdl.Surface
+var font *ttf.Font
 
 func registerFuncs(l *lua.State) {
 	l.Register("setColor", func(l *lua.State) int {
@@ -26,6 +28,18 @@ func registerFuncs(l *lua.State) {
 		h := lua.CheckInteger(l, 5)
 		rect := sdl.Rect{int32(x), int32(y), int32(w), int32(h)}
 		surface.FillRect(&rect, 0x0000ffff)
+		return 0
+	})
+	l.Register("print", func(l *lua.State) int {
+		str := lua.CheckString(l, 1)
+		x := lua.CheckInteger(l, 2)
+		y := lua.CheckInteger(l, 3)
+		text, err := font.RenderUTF8Blended(str + "δέλτα", sdl.Color{R: 255, G: 255, B: 255, A: 255})
+		if err != nil {
+			return 0
+		}
+		defer text.Free()
+		text.Blit(nil, surface, &sdl.Rect{X: int32(x), Y: int32(y), W: 0, H: 0})
 		return 0
 	})
 }
@@ -61,6 +75,16 @@ func main() {
 		}
 	}
 
+	if err = ttf.Init(); err != nil {
+		return
+	}
+	defer ttf.Quit()
+
+	if font, err = ttf.OpenFont("FiraSans-Regular.ttf", 32); err != nil {
+		return
+	}
+	defer font.Close()
+
 	if err := sdl.Init(sdl.INIT_EVERYTHING); err != nil {
 		log.Fatal(err)
 	}
@@ -79,12 +103,19 @@ func main() {
 		log.Fatal(err)
 	}
 
+	text, err := font.RenderUTF8Blended(url, sdl.Color{R: 0, G: 0, B: 0, A: 255})
+	if err != nil {
+		return
+	}
+	defer text.Free()
+
 	running := true
 	for running {
 		surface.FillRect(nil, 0)
 
 		rect := sdl.Rect{0, 0, 800, 40}
-		surface.FillRect(&rect, 0x00eeeeee)
+		surface.FillRect(&rect, 0x00888888)
+		text.Blit(nil, surface, &sdl.Rect{X: 10, Y: 0, W: 0, H: 0})
 
 		l.Global("update")
 		if (l.IsFunction(-1)) {
@@ -104,12 +135,34 @@ func main() {
 
 		window.UpdateSurface()
 
+		sdl.Delay(16)
+
 		for event := sdl.PollEvent(); event != nil; event = sdl.PollEvent() {
-			switch event.(type) {
+			switch t := event.(type) {
+			case *sdl.MouseButtonEvent:
+				if t.State == sdl.PRESSED {
+					l.Global("mouse_pressed")
+					if (l.IsFunction(-1)) {
+						l.PushInteger(int(t.X))
+						l.PushInteger(int(t.Y))
+						err := l.ProtectedCall(2, 0, 0)
+						if err != nil {
+							log.Fatal(err)
+						}
+					}
+				} else {
+					l.Global("mouse_released")
+					if (l.IsFunction(-1)) {
+						l.PushInteger(int(t.X))
+						l.PushInteger(int(t.Y))
+						err := l.ProtectedCall(2, 0, 0)
+						if err != nil {
+							log.Fatal(err)
+						}
+					}
+				}
 			case *sdl.QuitEvent:
-				println("Quit")
 				running = false
-				break
 			}
 		}
 	}
