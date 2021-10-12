@@ -34,7 +34,7 @@ func registerFuncs(l *lua.State) {
 		str := lua.CheckString(l, 1)
 		x := lua.CheckInteger(l, 2)
 		y := lua.CheckInteger(l, 3)
-		text, err := font.RenderUTF8Blended(str + "δέλτα", sdl.Color{R: 255, G: 255, B: 255, A: 255})
+		text, err := font.RenderUTF8Blended(str, sdl.Color{R: 255, G: 255, B: 255, A: 255})
 		if err != nil {
 			return 0
 		}
